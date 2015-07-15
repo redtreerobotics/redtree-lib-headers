@@ -297,6 +297,99 @@
 	/*
 	 * m_blob
 	 */
+	class m_blob;
+	class m_blob_value_abstract : public m_lockable, public m_subscribable<m_blob>
+	{
+		public:
+		void* val;
+		uint32_t size;
+		std::vector<m_blob*> owners;
+		
+		m_blob_value_abstract();
+		m_blob_value_abstract(m_blob* parent);
+		virtual void set(m_blob& val); //copy assignemnt
+		virtual void set(void* data, uint32_t val_size); //RAM assignemnt
+		virtual void set(std::string file_path); //File assignment
+		virtual void* get(void); //copy of pointer address retrieval
+		virtual ~m_blob_value_abstract();
+		virtual void delink(m_blob* p);
+		virtual m_blob_value_abstract* link(m_blob* p);
+
+	};
+	
+	class m_blob : public m_tag, public m_subscribable<m_blob>
+	{
+		public:
+			m_blob_value_abstract* value;
+			uint32_t size(void);
+
+			void Register(m_tag *parent, std::string name, std::string file_path); //initialize with file
+			void Register(m_tag *parent, std::string name, void* initial_value, uint32_t initial_value_size); //initialize with RAM
+
+			m_blob(); //blank constructor
+			m_blob(m_blob* c); //copy constructor
+			m_blob(std::string file_path);
+			m_blob(void* val, uint32_t val_size);
+			
+			void buffer_to_tag(char * buffer);
+			char *tag_to_buffer(int *length);
+			
+			void link(m_blob& arg);
+			void set(m_blob& val); //copy assignemnt
+
+			void set(void* val, uint32_t val_size); //RAM assignemnt
+			void set(std::string file_path); //File assignment
+			
+			void* get(void); //copy of pointer address retrieval
+			
+			void to_file(std::string file_path);
+			
+			m_blob& operator=(m_blob& val);//deep copy assign
+
+			//m_blob& operator=(m_tag& val); //deep copy from serailized tag
+			m_blob& operator=(std::string file_path); //open file and copy into blob
+			
+			~m_blob();
+			
+			virtual void subscribe(m_subscription_interface& subs)
+			{
+				if(this->value != NULL)
+				{
+					this->value->subscribe(subs);
+				}
+			}
+
+			virtual void subscribe(m_subscription_interface* subs)
+			{
+				if(this->value != NULL)
+				{
+					this->value->subscribe(subs);
+				}
+			}
+		   
+			virtual void notify_subscribers(m_blob* val)
+			{
+				if(this->value != NULL)
+				{
+					this->value->notify_subscribers(val);
+				}
+			}
+		protected:
+		private:
+	};
+
+	class m_blob_value_real : public m_blob_value_abstract
+	{
+		public:
+			m_blob_value_real();
+			m_blob_value_real(m_blob* parent, void* initial, uint32_t initial_size);
+			m_blob_value_real(m_blob* parent, std::string file_path);
+			m_blob_value_real(m_blob* parent);
+			~m_blob_value_real();
+		protected:
+		private:
+	};
+
 
 	/*
 	 * m_string
