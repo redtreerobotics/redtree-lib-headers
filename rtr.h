@@ -9,7 +9,6 @@
 #include <string>		//std::string
 #include <map>			//std::map
 #include <functional>	//std::function
-#include <stack>		//std::stack
 #include <iostream>		//std::cout
 
 /*
@@ -150,6 +149,7 @@
 				unlock();
 			};
 	};
+	
 	//m_run_condition (void template)
 	template<> class m_run_condition<void> : public m_lockable
 	{
@@ -173,7 +173,6 @@
 			void notify() { lock(); pthread_cond_broadcast(&signaler); unlock(); };
 	};
 
-	
 	class m_thread
 	{
 		public:
@@ -183,7 +182,9 @@
 		protected:
 		private:
 	};
+	
 	class m_job_sync;
+	
 	class m_job_interface : public m_module
 	{
 	public:
@@ -197,6 +198,7 @@
 		virtual void Register(m_tag* parent, std::string name, uint32_t max_jobs_running, bool reentrent, double task_period) {};
 		virtual void start(void) {};
 	};
+	
 	/*
 	 * class syncs the execution of two jobs
 	 * Makes JobB follow the execution of JobA
@@ -295,6 +297,7 @@
 			bool isConditional{true};
 			bool notified{true};
 	};
+	
 	//m_worker, no classes
 	template<> class m_worker<void, void> : public m_job_interface
 	{
@@ -659,31 +662,6 @@
 			static int fd;
 	};
 
-	class m_tagdb
-	{
-		public:	
-			static void add(m_tag* t);
-			static m_tag* lookup_tag(std::string name);
-			static int insert_tag(m_tag* tag);
-			static void print(void);
-			static void for_each_tag(std::function<void(m_tag*)> f);
-			
-			static void setup_tags();
-			static void start_tags();
-			static void initialize_tags();
-			static void configure_tags();
-			
-			
-		private:
-			static std::vector<m_tag*> db;
-			static std::stack<m_tag*> configure_stack;
-			static std::stack<m_tag*> setup_stack;
-			static std::stack<m_tag*> initialize_stack;
-			static std::stack<m_tag*> start_stack;
-			//static std::vector<m_device*> devices;
-			//static std::vector<m_module*> modules;
-	};
-
 	#ifdef __cplusplus
 	extern "C" {
 	#endif
@@ -691,4 +669,5 @@
 	#ifdef __cplusplus
 	}
 	#endif
+
 #endif

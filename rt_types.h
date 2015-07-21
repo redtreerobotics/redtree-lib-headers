@@ -5,16 +5,47 @@
 	#include <vector>		//std::vector
 	#include <functional>	//std::function
 	#include <iostream>		//std::cout
+	#include <stack>		//std::stack
+	#include <string>		//std::string
+	#include <sstream>		//std::stringstream
+	#include <stdarg.h>		//va_arg
+	
 	#include <rtr.h>
 
 	//m_lock
 	class m_lock
 	{
 		public:
-			m_lock();
-			virtual void lock();
-			virtual void unlock();
-			pthread_mutex_t* getLockHandle();
+			m_lock() { 
+				pthread_mutexattr_init(&this->lock_attributes); 
+				pthread_mutexattr_settype(&this->lock_attributes, PTHREAD_MUTEX_RECURSIVE); 
+				//pthread_mutexattr_setrobust(&this->lock_attributes, PTHREAD_MUTEX_ROBUST); 
+				pthread_mutex_init(&this->internal_lock, &this->lock_attributes); 
+			};
+			
+			virtual void lock() {
+				int x = pthread_mutex_lock(&this->internal_lock);
+				switch(x)
+				{
+						case EAGAIN:
+							std::cout << "Max recursive locks has been exceeded" << std::endl;
+							break;
+						case EDEADLK:
+							std::cout << "Deadlock detected or current thread owns mutex" << std::endl;
+							break;
+						case EBUSY:
+							std::cout << "Current thread could not get mutex" << std::endl;
+							break;
+						case EPERM:
+							std::cout << "Current thread does not own the mutex" << std::endl;
+							break;
+						default:
+							break;
+				}
+			};
+			
+			virtual void unlock() { pthread_mutex_unlock(&this->internal_lock); };
+			pthread_mutex_t* getLockHandle() { return &this->internal_lock; };
 			pthread_mutexattr_t lock_attributes;
 			pthread_mutex_t internal_lock;
 	};
@@ -23,7 +54,6 @@
 		public:
 	};
 
-	//m_tag
 	class m_option_interface 
 	{
 		public:
@@ -33,35 +63,113 @@
 	};
 	#define m_option_list std::vector<m_option_interface*>
 	class m_subscription_interface;
+	
+	//m_tagdb
+	class m_tag;
+	class m_tagdb
+	{
+		public:	
+			static void add(m_tag* t);
+			static m_tag* lookup_tag(std::string name);
+			static int insert_tag(m_tag* tag);
+			static void print(void);
+			static void for_each_tag(std::function<void(m_tag*)> f);
+			
+			static void setup_tags();
+			static void start_tags();
+			static void initialize_tags();
+			static void configure_tags();
+			
+			
+		private:
+			static std::vector<m_tag*> db;
+			static std::stack<m_tag*> configure_stack;
+			static std::stack<m_tag*> setup_stack;
+			static std::stack<m_tag*> initialize_stack;
+			static std::stack<m_tag*> start_stack;
+			//static std::vector<m_device*> devices;
+			//static std::vector<m_module*> modules;
+	};
+	
+	enum {
+		M_DIGITAL,
+		M_NUMERIC,
+		M_NUM,
+		M_BLOB,
+		M_STRING,
+		M_IMAGE,
+		M_AUDIO,
+		M_VIDEO,
+		M_USER,
+	};
+	
 	class m_tag : public m_lockable
 	{
 		public:
-			m_option_list tag_options;
-			m_option_list applied_options;
 			std::string name;
+			m_option_list applied_options;
+			m_option_list tag_options;
 			bool needs_deletion;
 			
-			m_tag(std::string name);
-			m_tag(m_tag* parent, std::string n);
-			m_tag(m_tag* parent, std::string n, m_option_list option_list);
-			m_tag(std::string n, m_option_list option_list);
+			m_tag(std::string name) : name(name) { m_tagdb::insert_tag(this); };
+			m_tag(m_tag* parent, std::string n) { this->name = std::string(parent->name).append(".").append(n); m_tagdb::insert_tag(this); };
+			m_tag(m_tag* parent, std::string n, m_option_list option_list) : applied_options(option_list) { this->name = std::string(parent->name).append(".").append(n); m_tagdb::insert_tag(this); };
+			m_tag(std::string n, m_option_list option_list) : name(n), applied_options(option_list) { m_tagdb::insert_tag(this); };
 			m_tag() {};
 			   
 			virtual void initialize(){};
 			virtual void setup(){};
 			virtual void configure(){};
 			virtual void start(){};
-			virtual void apply_options(void);
+			virtual void apply_options(void) {
+				//find which options match from the applied optionsadd apply them to the matching tag options
+				for(auto tag_option : tag_options)
+				{
+					for(auto applied_option : applied_options)
+					{
+						std::string actual_name = tag_option->getName();
+						actual_name = actual_name.substr(actual_name.find_last_of(".") + 1, actual_name.length());
+						if(applied_option->getName() == actual_name)
+						{
+							tag_option->apply(applied_option);
+						}
+					}
+				}
+
+				//for all tag options execute their application functions.
+				for(auto tag_option : tag_options)
+				{
+					tag_option->execute();
+				}
+			};
 			virtual void subscribe(m_subscription_interface& subs) {};
-			static std::vector<std::string> split(const std::string &s, char delim);
-			static std::map<std::string, void*> Parse_String_Args(std::string fmt, va_list args);
+			static std::vector<std::string> split(const std::string &s, char delim) {
+				std::vector<std::string> elems;
+				std::stringstream ss(s);
+				std::string item;
+				while (getline(ss, item, delim)) {
+					elems.push_back(item);
+				}
+				return elems;
+			};
+			static std::map<std::string, void*> Parse_String_Args(std::string fmt, va_list args) {
+				std::map<std::string, void*> argmap;
+				//split the strings
+				std::vector<std::string> argnames = m_tag::split(fmt, ',');
+				uint32_t i;
+				for(i = 0; i<argnames.size(); i++)
+				{
+					argmap[argnames.at(i)] = va_arg(args,void*);
+				}
+				return argmap;
+			};
 			
 			/* Required to be implemented by child tags for serialization over the network */
-			virtual int getSerializedSize(void);
-			virtual char * tag_to_buffer(int * length);
-			virtual void buffer_to_tag(char * buffer);
+			virtual int getSerializedSize(void) { return 0; };
+			virtual char * tag_to_buffer(int * length) { std::cout << "CALLED M_TAG SERIALIZE -> PROB BAD!!!" << std::endl; *length = 0; return NULL; };
+			virtual void buffer_to_tag(char * buffer) {};
 			
-			virtual ~m_tag();
+			virtual ~m_tag() { unlock(); };
 				
 		protected:
 		private:
@@ -430,19 +538,6 @@
 			void handle(void);
 			void wait(void);
 			void run(void);
-	};
-	
-	//m_tagdb
-	enum {
-		M_DIGITAL,
-		M_NUMERIC,
-		M_NUM,
-		M_BLOB,
-		M_STRING,
-		M_IMAGE,
-		M_AUDIO,
-		M_VIDEO,
-		M_USER,
 	};
 
 #endif
