@@ -107,6 +107,44 @@ class XBOX_Joystick : public m_device
 	private:
 };
 
+//camera
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui/highgui.hpp>
+using namespace cv;
+
+//todo - try to detect these indices automatically if there is a laptop
+//webcam or not
+#define CAM1_INDEX 1
+#define CAM2_INDEX 2
+
+class camera : public m_device
+{
+	public:
+		using m_device::m_device;
+		void configure(void);
+		void initialize(void);
+		void setup(void);
+		void start(void);
+		
+		int getWidth(void) { return width; };
+		int getHeight(void) { return height; };
+		
+		//matrix stuff
+		int getType(void);
+		int getRows(void);
+		int getCols(void);
+		int getSize(void);
+		
+		Mat getImage(void);
+		m_blob getBlob(void);
+		
+		m_stoplight isStarted(void) { return Started; };
+	private:
+		cv::Mat firstImage;
+		VideoCapture vc;
+		int width; int height;
+};
+
 //general helper functions
 float scale_deadband(float gain, float db, float val);
 

@@ -4,6 +4,7 @@
 #include <rtr.h>
 #include <vector>
 #include <string>
+#include <sys/socket.h>			// socket
 
 /*
  * A subscription should be unique by the tag_name. If a subscription with a given tag name exists,
@@ -33,7 +34,10 @@ class remote_subscription
 		m_tag * tag;
 };
 
-std::vector<remote_subscription *> subscribe_broadcast(std::string name, int timeout_sec);
-std::vector<m_tag *> get_tag_broadcast(std::string name, int timeout_sec);
+std::vector<remote_subscription *> subscribe_broadcast(std::string name, int timeout_sec, int timeout_usec);
+std::vector<m_tag *> get_tag_broadcast(std::string name, int timeout_sec, int timeout_usec);
+
+int recv_buffer(int sockfd, char * buffer, int size, int flags, struct sockaddr *src_addr, socklen_t *addrlen, int timeout_sec, int timeout_usec);
+int send_buffer(int sockfd, char * buffer, int size, int flags, struct sockaddr *dest_addr, socklen_t addrlen);
 
 #endif

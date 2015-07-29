@@ -436,7 +436,11 @@
 
 			m_blob(); //blank constructor
 			m_blob(m_blob* c); //copy constructor
-			m_blob(std::string file_path);
+			
+			
+			// m_blob(std::string file_path); 	//had to be removed (jason so we can set names the same way as the m_num class)
+			m_blob(std::string name) : m_tag(name) {};
+			
 			m_blob(void* val, uint32_t val_size);
 			
 			void buffer_to_tag(char * buffer);
